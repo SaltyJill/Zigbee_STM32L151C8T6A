@@ -19,12 +19,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dma.h"
+#include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stop.h"
+#include "zigbee.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,35 +35,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define RX_LEN 25
-#define RX_COMMEND_LEN 4
-#define TX_LEN 15
-uint8_t RX_BUF[RX_LEN];
-uint8_t RX_COMEND[RX_COMMEND_LEN];
-uint8_t TX_BUF[TX_LEN];
-volatile uint8_t Flag_RX_uart1 = RESET;
-volatile uint8_t Flag_RX_uart3 = RESET;
-volatile uint8_t Flag_CMD_ILLEGAL = RESET;
-/*---ZIGBEE CFG---*/
-uint8_t Zigbee_CFGget[2] = {0x23, 0xA0}; // 查询CFG,返回0xA2+14byte
-uint8_t Zigbee_CFGset[2] = {0x23, 0xFE}; // 设置CFG
-uint8_t Zigbee_CFGrst[2] = {0x23, 0x23}; // 模块重启,退出CFG 必须高电平
-uint8_t Zigbee_CFG[14] = {
-    0x00,
-    0x00, // 节点地址 中心节点固定0000,有效范围0001-FFFE
-    0xA0, // 网络ID   00-FF
-    0x02, // 网络类型 01-网状网,02-星型网,07-对等网
-    0x01, // 节点类型 01-中心节点,03-中继路由,04-终端节点
-    0x02, // 发送模式 01-广播,02-主从,03-点对点
-    0x06, // 波特率   01-1200,02-2400,03-4800,04-9600,05-19200,06-38400,07-57600,08-115200
-    0x01, // 奇偶校验 01-NONE，02-EVEN，03-ODD
-    0x01, // 数据格式 01-8位
-    0x02, // 地址编码 01-ACSII，02-HEX
-    0xFF, // 串口超时 05-FF
-    0x08, // 无线频点 00-0F
-    0x00, // 发射功率 缺省
-    0x01  // 源地址   01-不输出,02-ASCII 输出,03-HEX输出
-};
+#define rx_len 4
+#define tx_len 24
+uint8_t rx_buff[rx_len];
+uint8_t tx_buff[tx_len];
+uint8_t Flag_rx = RESET;
+uint8_t Flag_tx = RESET;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -79,37 +57,7 @@ uint8_t Zigbee_CFG[14] = {
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void Zigbee_init(void)
-{
-    set_enter;
-    HAL_Delay(3000);
-    HAL_UART_Transmit(&huart3, Zigbee_CFGset, 2, 100);
-    HAL_UART_Transmit(&huart3, Zigbee_CFG, 14, 500);
-    set_exit;
-    HAL_UART_Transmit(&huart3, Zigbee_CFGrst, 2, 100);
-}
-void TX_CMD_Load(uint8_t *padd_Buf, uint8_t status)
-{
-    TX_BUF[0] = padd_Buf[2] - '0';
-    TX_BUF[1] = padd_Buf[3] - '0';
-    if (status == SET)
-    {
-        TX_BUF[2] = 0xC0;
-        TX_BUF[3] = 0x0B;
-    }
-    else
-    {
-        TX_BUF[2] = 0xC0;
-        TX_BUF[3] = 0x0A;
-    }
-}
-void Clear_Buf(uint8_t *padd_Buf, uint8_t len)
-{
-    for (uint8_t i = 0; i < len; i++)
-    {
-        padd_Buf[i] = 0;
-    }
-}
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -147,67 +95,24 @@ int main(void)
     /* Initialize all configured peripherals */
     MX_GPIO_Init();
     MX_DMA_Init();
-    MX_USART1_UART_Init();
     MX_USART3_UART_Init();
+    MX_RTC_Init();
     /* USER CODE BEGIN 2 */
-    HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"Wait for Zigbee init...\r\n", 27);
-    Zigbee_init();
-    HAL_Delay(300);//等待节点加入网路
-    HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"System is ready.\r\n", 17);
-    HAL_UART_Receive_DMA(&huart3, RX_BUF, RX_LEN);
-    HAL_UART_Receive_DMA(&huart1, RX_COMEND, RX_COMMEND_LEN);
-    __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT);
-    __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+    pvt_low_Power_init();
+    pvt_Zigbee_init();
+    HAL_Delay(1000); // 用于烧录程序延时
     /* USER CODE END 2 */
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1)
     {
-        /*---ZIGBEE RECEIVING---*/
-        if (Flag_RX_uart3 == SET)
-        {
-            HAL_UART_Transmit(&huart1, RX_BUF, RX_LEN, 100);
-            HAL_UART_Receive_DMA(&huart3, RX_BUF, RX_LEN); // 继续接收数据
-            Flag_RX_uart3 = RESET;
-        }
-        /*---COMMAND PROCESSING---*/
-        if (Flag_RX_uart1 == SET)
-        {
-            if (RX_COMEND[0] == '#')
-            {
-                led_on;
-                switch (RX_COMEND[1])
-                {
-                case 'S':
-                    TX_CMD_Load(RX_COMEND, SET);
-                    break;
-                case 'W':
-                    TX_CMD_Load(RX_COMEND, RESET);
-                    break;
-                default:
-                    HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"Invalid Command\r\n", 17);
-                    Flag_CMD_ILLEGAL = SET;
-                    break;
-                }
-                if (Flag_CMD_ILLEGAL == RESET)
-                {
-                    HAL_UART_Transmit_DMA(&huart3, TX_BUF, 4);
-                }
-                else
-                {
-                    Flag_CMD_ILLEGAL = RESET;
-                }
-            }
-            else
-            {
-                HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"Invalid Command\r\n", 17);
-            }
-            Flag_RX_uart1 = RESET;
-            Clear_Buf(TX_BUF, 4);
-            HAL_UART_Receive_DMA(&huart1, RX_COMEND, RX_COMMEND_LEN); // 继续接收命令
-        }
-
+        led_on();
+        /*---MISSION HERE---*/
+        pvt_low_Power_enterSTOP();
+        /*---STOP HERE---*/
+        pvt_low_Power_exitSTOP();
+        HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
@@ -223,6 +128,7 @@ void SystemClock_Config(void)
 {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
     /** Configure the main internal regulator output voltage
      */
@@ -231,12 +137,11 @@ void SystemClock_Config(void)
     /** Initializes the RCC Oscillators according to the specified parameters
      * in the RCC_OscInitTypeDef structure.
      */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL4;
-    RCC_OscInitStruct.PLL.PLLDIV = RCC_PLL_DIV2;
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_LSE;
+    RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
     {
         Error_Handler();
@@ -245,7 +150,7 @@ void SystemClock_Config(void)
     /** Initializes the CPU, AHB and APB buses clocks
      */
     RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
@@ -254,19 +159,18 @@ void SystemClock_Config(void)
     {
         Error_Handler();
     }
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+    PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+        Error_Handler();
+    }
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc)
 {
-    if (huart->Instance == USART1)
-    {
-        Flag_RX_uart1 = SET;
-    }
-    else if (huart->Instance == USART3)
-    {
-        Flag_RX_uart3 = SET;
-    }
+
 }
 /* USER CODE END 4 */
 
