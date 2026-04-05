@@ -24,7 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,11 +34,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define RX_LEN 25
+#define RX_LEN 24
 #define RX_COMMEND_LEN 4
 #define TX_LEN 15
 uint8_t RX_BUF[RX_LEN];
-uint8_t RX_COMEND[RX_COMMEND_LEN];
+uint8_t PACK_BUF[RX_LEN] uint8_t RX_COMEND[RX_COMMEND_LEN];
 uint8_t TX_BUF[TX_LEN];
 volatile uint8_t Flag_RX_uart1 = RESET;
 volatile uint8_t Flag_RX_uart3 = RESET;
@@ -94,13 +94,13 @@ void TX_CMD_Load(uint8_t *padd_Buf, uint8_t status)
     TX_BUF[1] = padd_Buf[3] - '0';
     if (status == SET)
     {
-        TX_BUF[2] = 0xC0;
-        TX_BUF[3] = 0x0B;
+        TX_BUF[2] = 0x0B;
+        TX_BUF[3] = 0xC0;
     }
     else
     {
-        TX_BUF[2] = 0xC0;
-        TX_BUF[3] = 0x0A;
+        TX_BUF[2] = 0x0A;
+        TX_BUF[3] = 0xC0;
     }
 }
 void Clear_Buf(uint8_t *padd_Buf, uint8_t len)
@@ -152,7 +152,7 @@ int main(void)
     /* USER CODE BEGIN 2 */
     HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"Wait for Zigbee init...\r\n", 27);
     Zigbee_init();
-    HAL_Delay(300);//等待节点加入网路
+    HAL_Delay(300); // 等待节点加入网路
     HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"System is ready.\r\n", 17);
     HAL_UART_Receive_DMA(&huart3, RX_BUF, RX_LEN);
     HAL_UART_Receive_DMA(&huart1, RX_COMEND, RX_COMMEND_LEN);
@@ -167,7 +167,8 @@ int main(void)
         /*---ZIGBEE RECEIVING---*/
         if (Flag_RX_uart3 == SET)
         {
-            HAL_UART_Transmit(&huart1, RX_BUF, RX_LEN, 100);
+            memcpy(PACK_BUF,RX_BUF,RX_LEN);//暂存数据
+            HAL_UART_Transmit_DMA(&huart1, PACK_BUF, RX_LEN);
             HAL_UART_Receive_DMA(&huart3, RX_BUF, RX_LEN); // 继续接收数据
             Flag_RX_uart3 = RESET;
         }

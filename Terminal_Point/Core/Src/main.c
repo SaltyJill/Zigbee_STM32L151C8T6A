@@ -35,12 +35,15 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define heart_beat_len 4
 #define rx_len 4
 #define tx_len 24
 uint8_t rx_buff[rx_len];
-uint8_t tx_buff[tx_len];
-uint8_t Flag_rx = RESET;
-uint8_t Flag_tx = RESET;
+uint8_t tx_pack[tx_len];
+volatile uint8_t Flag_rx = RESET;
+volatile uint8_t Flag_tx = RESET;
+uint8_t Run_state = RESET; // RESET-Run,SET-Lowpower
+uint8_t heart_beat[heart_beat_len] = {netID | netPT, pointADD, Run_state, 0xC0};
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -100,7 +103,8 @@ int main(void)
     /* USER CODE BEGIN 2 */
     pvt_low_Power_init();
     pvt_Zigbee_init();
-    HAL_Delay(1000); // 用于烧录程序延时
+    HAL_Delay(1000); // 用于烧录程序延时并等待Zigbee入网(后续可调试为zigbee入网时间)
+    HAL_UART_Receive_DMA(&huart3, rx_buff, rx_len);
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -108,11 +112,32 @@ int main(void)
     while (1)
     {
         led_on();
+        HAL_UART_Transmit_DMA(&huart3, heart_beat, heart_beat_len);
         /*---MISSION HERE---*/
-        pvt_low_Power_enterSTOP();
-        /*---STOP HERE---*/
-        pvt_low_Power_exitSTOP();
-        HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
+        HAL_UART_Transmit_DMA(&huart3, tx_pack, tx_len);
+        /*---COMMAND PROCESSPN---*/
+        if (Flag_rx == SET)
+        {
+            if (rx_buff[3]==0xC0)
+            {
+                if (rx_buff[2] == 0x0B)
+                {
+                    Run_state = SET;
+                }
+                else if (rx_buff[2] == 0x0A)
+                {
+                    Run_state = RESET;
+                }
+            }
+            HAL_UART_Receive_DMA(&huart3, rx_buff, rx_len);
+            Flag_rx = RESET;
+        }
+        if (Run_state == SET)
+        {
+            pvt_low_Power_enterSTOP();
+            /*---STOP HERE---*/
+            pvt_low_Power_exitSTOP();
+        }
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
@@ -170,7 +195,21 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc)
 {
-
+    ;
+}
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        Flag_rx = SET;
+    }
+}
+void HAL_uart_txCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        Flag_tx = SET;
+    }
 }
 /* USER CODE END 4 */
 
