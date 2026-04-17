@@ -38,7 +38,8 @@
 #define RX_COMMEND_LEN 4
 #define TX_LEN 15
 uint8_t RX_BUF[RX_LEN];
-uint8_t PACK_BUF[RX_LEN] uint8_t RX_COMEND[RX_COMMEND_LEN];
+uint8_t PACK_BUF[RX_LEN];
+uint8_t RX_COMEND[RX_COMMEND_LEN];
 uint8_t TX_BUF[TX_LEN];
 volatile uint8_t Flag_RX_uart1 = RESET;
 volatile uint8_t Flag_RX_uart3 = RESET;
@@ -153,11 +154,11 @@ int main(void)
     HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"Wait for Zigbee init...\r\n", 27);
     Zigbee_init();
     HAL_Delay(300); // 等待节点加入网路
-    HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"System is ready.\r\n", 17);
+    HAL_UART_Transmit_DMA(&huart1, (uint8_t *)"System is ready\r\n", 17);
     HAL_UART_Receive_DMA(&huart3, RX_BUF, RX_LEN);
     HAL_UART_Receive_DMA(&huart1, RX_COMEND, RX_COMMEND_LEN);
-    __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT);
-    __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+    //__HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT);
+    //__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
     /* USER CODE END 2 */
 
     /* Infinite loop */

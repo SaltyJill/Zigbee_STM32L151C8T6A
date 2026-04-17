@@ -27,14 +27,16 @@ void pvt_Zigbee_init(void)
     HAL_UART_Transmit(&huart3, ZIGBEE_CFGset, 2, 100);
     HAL_UART_Transmit(&huart3, TERMMINAL_CFG, 14, 500);
     cfg_exit();
+    HAL_Delay(10); // 等待引脚电平稳定
     HAL_UART_Transmit(&huart3, ZIGBEE_CFGrst, 2, 100);
 }
-uint16_t CRC16_IBM_37(uint8_t *data)
+
+uint16_t CRC16_IBM_Byte(uint8_t *data,uint8_t start,uint8_t end)
 {
     uint16_t crc = 0x0000;  // 初始值 (Init)
     uint16_t poly = 0xA001; // 反转后的多项式 (0x8005 的反转)
 
-    for (uint16_t i = 2; i < 7; i++)
+    for (uint16_t i = start-1; i < end; i++)
     {
         crc ^= data[i]; // 将字节数据与初始值低8位异或
 

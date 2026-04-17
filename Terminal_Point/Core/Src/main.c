@@ -22,6 +22,7 @@
 #include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stop.h"
@@ -36,14 +37,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define heart_beat_len 4
-#define rx_len 4
+#define cmd_len 4
 #define tx_len 24
-uint8_t rx_buff[rx_len];
-uint8_t tx_pack[tx_len];
-volatile uint8_t Flag_rx = RESET;
-volatile uint8_t Flag_tx = RESET;
-uint8_t Run_state = RESET; // RESET-Run,SET-Lowpower
-uint8_t heart_beat[heart_beat_len] = {netID | netPT, pointADD, Run_state, 0xC0};
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -54,13 +49,38 @@ uint8_t heart_beat[heart_beat_len] = {netID | netPT, pointADD, Run_state, 0xC0};
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t cmd_buff[cmd_len];
+uint8_t tx_pack[tx_len] = {
+    netID | netPT, pointADD, // 本节点地址
+    0xFB, 0xFB, 0xFC, 0xFC,  // 数据帧头
+    0x00,                    // 6数据类型，Default
+    0x00, 0x00,               // 7-8电池电量，Default
+    0x00,                    // 9信号类型，Default
+    0x00, 0x00, 0x00, 0x00,  // 10-13累计发送次数，Default
+    0x00, 0x00, 0x00, 0x00,  // 14-17数据，Default
+    0x00, 0x00,              // 18-19CRC校验，Default
+    0xFE, 0xFE, 0xFF, 0xFF   // 数据帧尾
+};
+uint16_t u16CRCtemp = 0;
+volatile uint8_t Flag_rx = RESET;
+volatile uint8_t Flag_tx = RESET;
+volatile uint8_t Run_state = RESET; // RESET-Lowpower,SET-RUN
+uint8_t heart_beat[heart_beat_len] = {netID | netPT, pointADD, 0x00, 0xC0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void LED_flash200(uint8_t count)
+{
+    for (uint8_t i = 0; i < count; i++)
+    {
+        led_on();
+        HAL_Delay(100);
+        led_off();
+        HAL_Delay(100);
+    }
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -104,7 +124,7 @@ int main(void)
     pvt_low_Power_init();
     pvt_Zigbee_init();
     HAL_Delay(1000); // 用于烧录程序延时并等待Zigbee入网(后续可调试为zigbee入网时间)
-    HAL_UART_Receive_DMA(&huart3, rx_buff, rx_len);
+    HAL_UART_Receive_DMA(&huart3, cmd_buff, cmd_len);
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -112,31 +132,38 @@ int main(void)
     while (1)
     {
         led_on();
-        HAL_UART_Transmit_DMA(&huart3, heart_beat, heart_beat_len);
         /*---MISSION HERE---*/
+        
+        // CRC校验
+        u16CRCtemp = CRC16_IBM_Byte(tx_pack, 7, 18);
+        tx_pack[18] = (uint8_t)(u16CRCtemp >> 8);
+        tx_pack[19] = (uint8_t)(u16CRCtemp & 0x00FF);
         HAL_UART_Transmit_DMA(&huart3, tx_pack, tx_len);
         /*---COMMAND PROCESSPN---*/
         if (Flag_rx == SET)
         {
-            if (rx_buff[3]==0xC0)
+            if (cmd_buff[3] == 0xC0)
             {
-                if (rx_buff[2] == 0x0B)
+                if (cmd_buff[2] == 'A')
                 {
                     Run_state = SET;
                 }
-                else if (rx_buff[2] == 0x0A)
+                else if (cmd_buff[2] == 'B')
                 {
                     Run_state = RESET;
                 }
             }
-            HAL_UART_Receive_DMA(&huart3, rx_buff, rx_len);
+            HAL_UART_Receive_DMA(&huart3, cmd_buff, cmd_len);
             Flag_rx = RESET;
         }
-        if (Run_state == SET)
+        LED_flash200(3);
+        if (Run_state == RESET)
         {
             pvt_low_Power_enterSTOP();
             /*---STOP HERE---*/
             pvt_low_Power_exitSTOP();
+            heart_beat[2] = Run_state;
+            HAL_UART_Transmit_DMA(&huart3, heart_beat, heart_beat_len);
         }
         /* USER CODE END WHILE */
 

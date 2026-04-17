@@ -22,7 +22,7 @@ void pvt_low_Power_enterSTOP(void)
     led_off();
     /*---ZIGBEE休眠--- */
     slp_enter();
-    HAL_Delay(10);
+    HAL_Delay(50);
     /*---STOP串口设置*/
     HAL_UART_DeInit(&huart3);                               // 进入STOP模式前关闭串口
     __HAL_UART_CLEAR_FLAG(&huart3, UART_FLAG_RXNE);         // 清除串口接收标志，防止进入STOP模式后被误唤醒
