@@ -41,7 +41,7 @@ extern ADC_HandleTypeDef hadc;
 void MX_ADC_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-
+uint16_t Battery_mV_Avg(uint32_t cnt);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

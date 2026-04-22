@@ -127,5 +127,45 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
 }
 
 /* USER CODE BEGIN 1 */
+//一次ADC转换结果，阻塞式
+uint32_t  ADCget_avg(uint32_t timeout)
+{
+	  uint32_t u32raw=0;
+		HAL_ADC_Start(&hadc);
+		HAL_ADC_PollForConversion(&hadc,timeout);
+		u32raw=HAL_ADC_GetValue(&hadc);
+		HAL_ADC_Stop(&hadc);
+	
+		return u32raw;
+}
+//ADC结果转换为毫伏
+uint16_t Battery_mV(uint32_t raw)
+{
+    uint32_t NUM=0;
+    uint32_t DEN=0;
+    NUM=(uint32_t)(raw*3336*(56+22));
+    DEN=(uint32_t)(4095*56);
+    NUM+=DEN/2;//四舍五入
 
+    return (uint16_t)(NUM/DEN);
+}
+//平均ADC结果
+uint16_t Battery_mV_Avg(uint32_t cnt)
+{
+	uint16_t Vbat=0;
+	//uint32_t u32GETram=0;
+	uint32_t u32SUMram=0;
+	uint32_t u32AVGraw=0;
+	for(uint32_t i=0;i<cnt;i++)
+	{
+		u32SUMram+=ADCget_avg(10);
+		//u32GETram=ADCget_avg(10);
+		//u32SUMram+=u32GETram;
+		//u32GETram=0;
+	}
+	u32SUMram+=cnt/2;
+	u32AVGraw=u32SUMram/cnt;
+	Vbat=Battery_mV(u32AVGraw);
+	return Vbat;
+}
 /* USER CODE END 1 */
