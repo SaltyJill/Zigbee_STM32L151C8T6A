@@ -128,7 +128,7 @@ int main(void)
 	HAL_Delay(1000);//等待电平稳定
 	Zigbee_CFGinit(Termminal);
 	HAL_Delay(1000);//烧录,联网延时
-	HAL_UART_Transmit_DMA(&huart3,(uint8_t *)"Link Start\n",11);
+	//HAL_UART_Transmit_DMA(&huart3,(uint8_t *)"Link Start\n",11);
 	HAL_UART_Receive_DMA(&huart3,buf_CMD,len);//等待中心节点指令
   /* USER CODE END 2 */
 

@@ -58,10 +58,10 @@ void Zigbee_CFGinit(uint8_t CFGname)
     }
     Zigbee_CFGexit;
     HAL_Delay(50);
-    HAL_UART_Transmit(&huart3, ZIGBEE_CFGrst, 2, 100);
-    //Zigbee_RSTexit;
-    //HAL_Delay(50);
-    //Zigbee_RSTexit;
+    HAL_UART_Transmit(&huart3, ZIGBEE_CFGrst, 2, 200);
+    Zigbee_RSTenter;
+    HAL_Delay(50);
+    Zigbee_RSTexit;
 }
 //CRC校验
 uint16_t CRC16_IBM_Byte(uint8_t *data,uint8_t start,uint8_t end)
