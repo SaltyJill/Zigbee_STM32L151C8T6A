@@ -66,6 +66,8 @@ void Lp_STOPexit(void)
 		HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);//禁用RTC计数
     // 启用外设
     Zigbee_SLPexit;
+		Zigbee_RSTexit;
+		Zigbee_CFGexit;
     led_on;
-    // HAL_Delay(10);
+    HAL_Delay(50);
 }

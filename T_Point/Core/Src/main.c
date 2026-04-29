@@ -55,12 +55,12 @@
 /* USER CODE BEGIN PV */
 //volatile uint16_t ADC_cnt=0;
 //volatile uint16_t ADC_val=0;
-uint8_t work_mode=normal;//0x10-lowpower,0x11-normal,swith by order
+uint8_t work_mode=lowPower;//0x10-lowpower,0x11-normal,swith by order
 uint8_t work_data=sendDATA;
 uint16_t Vbat=0;
 uint32_t CNTsend=0;
 //uint8_t buf_packLoader[4];
-uint8_t buf_CMD[len];
+uint8_t buf_CMD[len]={0};
 uint16_t CRC_res=0;
 volatile uint8_t flag_CMD=RESET;
 //0x24-帧头帧尾，work_data:0x10不需要数据包0x11需要，work_mode:0x10低功耗模式0x11正常工作
@@ -160,7 +160,6 @@ int main(void)
 			CRC_res=CRC16_IBM_Byte(Data_pack,7,18);
 			u16MOVu8(CRC_res,Data_pack,19);
 			HAL_UART_Transmit_DMA(&huart3,Data_pack,len_data);//发送数据包
-			// 在 Lp_STOPenter() 之前添加等待逻辑：
       while (huart3.gState != HAL_UART_STATE_READY) {}//等待数据包发送
 		}
 		else if(work_data==noDATA)
@@ -174,11 +173,13 @@ int main(void)
 			Lp_STOPenter();
 			//---STOP HERE---
 			Lp_STOPexit();
-			HAL_Delay(500);//苏醒后联网
+			HAL_Delay(1000);//苏醒后联网
 			heart_beat[1]=work_data;
 			heart_beat[2]=work_mode;
 			HAL_UART_Transmit_DMA(&huart3,heart_beat,len);//发送心跳包
 			while (huart3.gState != HAL_UART_STATE_READY) {}
+			HAL_UART_Transmit_DMA(&huart3,Data_pack,len_data);//发送数据包
+      while (huart3.gState != HAL_UART_STATE_READY) {}//等待数据包发送
 			HAL_UART_Receive_DMA(&huart3,buf_CMD,len);//接受命令
 		}
 		else if(work_mode==normal)
