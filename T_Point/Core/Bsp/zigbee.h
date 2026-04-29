@@ -4,7 +4,7 @@
 #include "main.h"
 
 #define MainPoint 1
-#define Termminal 0
+#define Terminal 0
 //--- 网络设置 ---
 // 终端节点地址构成，0x(netID|netPoint)+0x(pointADD)
 #define netID 0x50    // 网络ID区分组

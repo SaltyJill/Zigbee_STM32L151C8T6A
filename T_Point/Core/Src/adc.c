@@ -143,7 +143,7 @@ uint16_t Battery_mV(uint32_t raw)
 {
     uint32_t NUM=0;
     uint32_t DEN=0;
-    NUM=(uint32_t)(raw*3336*(56+22));
+    NUM=(uint32_t)(raw*3330*(56+22));
     DEN=(uint32_t)(4095*56);
     NUM+=DEN/2;//四舍五入
 

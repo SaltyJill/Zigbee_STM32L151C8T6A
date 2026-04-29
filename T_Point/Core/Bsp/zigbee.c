@@ -22,7 +22,7 @@ static uint8_t MainPoint_CFG[14] = {
     0x00,       // 发射功率 缺省
     0x01        // 源地址   01-不输出,02-ASCII 输出,03-HEX输出
 };
-static uint8_t Termminal_CFG[14] = {
+static uint8_t Terminal_CFG[14] = {
     netID | netPoint, pointADD, // 节点地址 中心节点固定0000,有效范围0001-FFFE
     netID,                      // 网络ID   00-FF
     0x02,                       // 网络类型 01-网状网,02-星型网,07-对等网
@@ -54,7 +54,7 @@ void Zigbee_CFGinit(uint8_t CFGname)
     }
     else
     {
-        HAL_UART_Transmit(&huart3, Termminal_CFG, 14, 500);
+        HAL_UART_Transmit(&huart3, Terminal_CFG, 14, 500);
     }
     Zigbee_CFGexit;
     HAL_Delay(50);

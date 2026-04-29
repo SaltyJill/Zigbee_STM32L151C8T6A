@@ -63,6 +63,11 @@ void Lp_STOPexit(void)
     __HAL_RCC_ADC1_CLK_ENABLE();       // 启用ADC时钟
     //HAL_UART_Init(&huart3);            // 串口初始化
     MX_USART3_UART_Init();
+		__HAL_UART_ENABLE_IT(&huart3, UART_IT_RXNE);
+		/* Enable the UART Parity Error Interrupt */
+		__HAL_UART_ENABLE_IT(&huart3, UART_IT_PE);
+		/* Enable the UART Error Interrupt: (Frame error, noise error, overrun error) */
+		__HAL_UART_ENABLE_IT(&huart3, UART_IT_ERR);
 		HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);//禁用RTC计数
     // 启用外设
     Zigbee_SLPexit;
